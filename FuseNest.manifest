@@ -1,0 +1,13 @@
+{
+	"autodeskProduct":	"Fusion360",
+	"type":	"addin",
+	"id":	"b6b8525c-7a45-4246-9eb5-548c03f63e16",
+	"author":	"Nico Schlueter",
+	"description":	{
+		"":	"SVG nest for Fusion360"
+	},
+	"version":	"1.0.0",
+	"runOnStartup":	false,
+	"supportedOS":	"windows|mac",
+	"editEnabled":	true
+}
