@@ -5,19 +5,26 @@ import adsk.core, adsk.fusion, adsk.cam, traceback
 import math
 import re
 from xml.dom import minidom
-import json
 import time, threading
 
 # Global set of event handlers to keep them referenced for the duration of the command
 _handlers = []
 
-COMMAND_ID = "svgNestFusion"
-COMMAND_NAME = "2D Nest"
-COMMAND_TOOLTIP = "2D nest parts with SVGnest"
+COMMAND_ID = "fuseNest"
+COMMAND_NAME = "FuseNest"
+COMMAND_TOOLTIP = "2D nest/pack parts on a sheet"
  
 TOOLBAR_PANELS = ["SolidModifyPanel"]
 
 SVG_UNIT_FACTOR = 100
+
+# Initial persistence Dict
+pers = {
+    "VISheetWidth": 50,
+    "VISheetHeight": 30,
+    "VISpacing": 0,
+    "ISRotations": 4
+}
 
 transform_data = None
 
@@ -30,6 +37,7 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
     def notify(self, args):
         try:
             global transform_data 
+            global pers
             transform_data = None
 
             # Get the command that was created.
@@ -38,22 +46,12 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             # Registers the CommandDestryHandler
             onExecute = CommandExecuteHandler()
             cmd.execute.add(onExecute)
-            _handlers.append(onExecute)  
-            
-            # Registers the CommandExecutePreviewHandler
-            onExecutePreview = CommandExecutePreviewHandler()
-            cmd.executePreview.add(onExecutePreview)
-            _handlers.append(onExecutePreview)
+            _handlers.append(onExecute)
             
             # Registers the CommandInputChangedHandler          
             onInputChanged = CommandInputChangedHandler()
             cmd.inputChanged.add(onInputChanged)
-            _handlers.append(onInputChanged)            
-            
-            # Registers the CommandDestryHandler
-            onDestroy = CommandDestroyHandler()
-            cmd.destroy.add(onDestroy)
-            _handlers.append(onDestroy)
+            _handlers.append(onInputChanged)     
 
                 
             # Get the CommandInputs collection associated with the command.
@@ -62,28 +60,30 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             siBodies = inputs.addSelectionInput("SIBodies", "Bodies", "Select Bodies")
             siBodies.addSelectionFilter("Occurrences")
             siBodies.setSelectionLimits(0, 0)
+            siBodies.tooltip = "Select parts to be placed"
 
-            viSheetWidth = inputs.addValueInput("VISheetWidth", "Sheet Width", "mm", adsk.core.ValueInput.createByString("500 mm"))
+            viSheetWidth = inputs.addValueInput("VISheetWidth", "Sheet Width", "mm", adsk.core.ValueInput.createByReal(pers["VISheetWidth"]))
+            viSheetWidth.tooltip = "Width of the sheet the parts will be placed on"
 
-            viSheetHeight = inputs.addValueInput("VISheetHeight", "Sheet Height", "mm", adsk.core.ValueInput.createByString("300 mm"))
+            viSheetHeight = inputs.addValueInput("VISheetHeight", "Sheet Height", "mm", adsk.core.ValueInput.createByReal(pers["VISheetHeight"]))
+            viSheetHeight.tooltip = "Height of the sheet the parts will be placed on"
 
-            #viSpacing = inputs.addValueInput("VISpacing", "Spacing", "mm", adsk.core.ValueInput.createByString("10 mm"))
+            viSpacing = inputs.addValueInput("VISpacing", "Spacing", "mm", adsk.core.ValueInput.createByReal(pers["VISpacing"]))
+            viSpacing.tooltip = "Spacing between parts"
+            viSpacing.tooltipDescription = "May not be exact, can be off by ±0.5mm"
 
-            #isRotations = inputs.addIntegerSpinnerCommandInput("ISRotations", "Rotations", 2, 999999, 1, 4)
-
-            #ddPreset = inputs.addDropDownCommandInput("DDPreset", "Preset", 0)
-            #ddPreset.listItems.add("Round", False, "")
-            #ddPreset.listItems.add("Square", False, "")
+            isRotations = inputs.addIntegerSpinnerCommandInput("ISRotations", "Rotations", 2, 999999, 1, pers["ISRotations"])
+            isRotations.tooltip = "Number of possible rotations"
+            isRotations.tooltipDescription ="How many rotations to try.\nTrying more rotations will take longer to find a good result, but is necessary for some shapes\n\nRecommendations:\n2    -  Perfectly circular, square or hexagonal\n4    -  Rectangular\n8+ -  Odd/Organic shapes or mixed"
 
             bvNest = inputs.addBoolValueInput("BVNest", "    Start Nesting    ", False)
             bvNest.isFullWidth = True
+            bvNest.tooltip = "Start nesting process"
 
 
            
         except:
             print(traceback.format_exc())
-
-
 
 
 #Fires when the User executes the Command
@@ -105,7 +105,6 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
                 for i, t in transform_data:
                     mat1 = adsk.core.Matrix3D.create()
                     mat1.translation = adsk.core.Vector3D.create(t[0], -t[1], 0)
-                    #mat1.translation = adsk.core.Vector3D.create(1, 0, 0)
 
                     mat2 = adsk.core.Matrix3D.create()
                     mat2.setToRotation(
@@ -125,57 +124,6 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
                 adsk.core.Application.get().activeDocument.design.snapshots.add()
         except:
             print(traceback.format_exc())
-
-
-
-
-# Fires when the Command is being created or when Inputs are being changed
-# Responsible for generating a preview of the output.
-# Changes done here are temporary and will be cleaned up automatically.
-class CommandExecutePreviewHandler(adsk.core.CommandEventHandler):
-    def __init__(self):
-        super().__init__()
-    def notify(self, args):
-        try:
-
-            # Doesn't work
-            """
-            global transform_data
-            if(transform_data):
-                selections = []
-
-                for i in range(args.command.commandInputs.itemById("SIBodies").selectionCount):
-                    selections.append(args.command.commandInputs.itemById("SIBodies").selection(i).entity)
-
-                root = adsk.core.Application.get().activeProduct.rootComponent
-                sketch = root.sketches.add(root.xYConstructionPlane)
-                for i, t in transform_data:
-                    mat1 = adsk.core.Matrix3D.create()
-                    mat1.translation = adsk.core.Vector3D.create(t[0], -t[1], 0)
-                    #mat1.translation = adsk.core.Vector3D.create(1, 0, 0)
-
-                    mat2 = adsk.core.Matrix3D.create()
-                    mat2.setToRotation(
-                        math.radians(-t[2]),
-                        adsk.core.Vector3D.create(0,0,1),
-                        adsk.core.Point3D.create(0,0,0)
-                    )
-
-                    mat2.transformBy(mat1)
-
-                    trans = selections[i].transform
-                    trans.transformBy(mat2)
-                    selections[i].transform = trans
-
-                    #move_input = root.features.moveFeatures.createInput(oc, mat2)
-                    #root.features.moveFeatures.add(move_input)
-                adsk.core.Application.get().activeDocument.design.snapshots.add()
-            """
-            args.isValidResult = False                
-            
-        except:
-            print(traceback.format_exc())
-
 
 
 # Fires when CommandInputs are changed
@@ -186,6 +134,13 @@ class CommandInputChangedHandler(adsk.core.InputChangedEventHandler):
     def notify(self, args):
         try:
             if(args.input.id == "BVNest"):
+
+                global pers
+
+                pers["VISheetWidth"] = args.inputs.itemById("VISheetWidth").value
+                pers["VISheetHeight"] = args.inputs.itemById("VISheetHeight").value
+                pers["VISpacing"] = args.inputs.itemById("VISpacing").value
+                pers["ISRotations"] = args.inputs.itemById("ISRotations").value
 
                 # If there is already a palette, delete it
                 # This is mainly for debugging purposes
@@ -209,18 +164,18 @@ class CommandInputChangedHandler(adsk.core.InputChangedEventHandler):
                 for s in selections:
                     sketch = root.sketches.add(root.xYConstructionPlane)
                     sketch.project(s.bRepBodies[0])
-                    paths += sketchToSVGPaths(sketch) 
+                    paths.append(sketchToSVGPaths(sketch))
 
                 svg = buildSVGFromPaths(paths, args.inputs.itemById("VISheetWidth").value, args.inputs.itemById("VISheetHeight").value)
 
-                # Here is here i would also incude other setting but I havn't
-                #data = {
-                #    "svg": svg,
-                #    "spacing": args.inputs.itemById("VISpacing").value * SVG_UNIT_FACTOR,
-                #    "rotations": args.inputs.itemById("ISRotations").value
-                #}
-                #print(json.dumps(data))
-                
+                dataToSend = "{};{};{};{};{}".format(
+                    svg,
+                    args.inputs.itemById("VISpacing").value * SVG_UNIT_FACTOR,
+                    args.inputs.itemById("ISRotations").value,
+                    True,
+                    True     
+                )
+
                 # Re-selects all components, as they get lost during the previous steps
                 for s in selections:
                     args.inputs.itemById("SIBodies").addSelection(s)
@@ -242,26 +197,14 @@ class CommandInputChangedHandler(adsk.core.InputChangedEventHandler):
                 _handlers.append(onHTMLEvent)
 
                 # Sends data to palette after it had time to load
-                threading.Timer(2.5, sendSVGToPalette, [palette, svg]).start()
+                threading.Timer(4, sendDataToPalette, [palette, dataToSend]).start()
 
         except:
             print(traceback.format_exc())
-                
-                
-                
-# Fires when the Command gets Destroyed regardless of success
-# Responsible for cleaning up                 
-class CommandDestroyHandler(adsk.core.CommandEventHandler):
-    def __init__(self):
-        super().__init__()
-    def notify(self, args):
-        try:
-            # TODO: Add Destroy stuff
-            pass
-        except:
-            print(traceback.format_exc())
+          
 
-
+# Fires when Palette is closed
+# Responsible for deleting it
 class PaletteCloseEventHandler(adsk.core.UserInterfaceGeneralEventHandler):
     def __init__(self):
         super().__init__()
@@ -269,12 +212,14 @@ class PaletteCloseEventHandler(adsk.core.UserInterfaceGeneralEventHandler):
         try:
             ui = adsk.core.Application.get().userInterface
             palette = ui.palettes.itemById('paletteSVGNest')
-            palette.deleteMe()
+            if palette:
+                palette.deleteMe()
         except:
             print(traceback.format_exc())
 
 
-# Event handler for the palette HTML event.                
+# Fires when an HTML event is sent from the Palette
+# Responsive for parsing that data              
 class PaletteHTMLEventHandler(adsk.core.HTMLEventHandler):
     def __init__(self):
         super().__init__()
@@ -286,22 +231,29 @@ class PaletteHTMLEventHandler(adsk.core.HTMLEventHandler):
 
                 ui = adsk.core.Application.get().userInterface
                 palette = ui.palettes.itemById('paletteSVGNest')
-                palette.deleteMe()
-            
+                if palette:
+                    palette.deleteMe()
+
         except:
             print(traceback.format_exc())
 
 
-def sendSVGToPalette(palette, svg):
+def sendDataToPalette(palette, data):
+    """Sends data string to pallet
+
+    Args:
+        palette: (Palette) Palette to send data to
+        data: (String) Data string to send to pallete
+    """
     if palette:
-        palette.sendInfoToHTML("importSVG", svg)
+        palette.sendInfoToHTML("importSVG", data)
 
 
 def buildSVGFromPaths(paths, width=50, height=25):
     """Constructs a full svg fle from paths
 
     Args:
-        paths: (String[]) SVG path data
+        paths: (String[][]) SVG path data
         width: (float) Width ouf bounding rectangle
         height: (float) Height of bounding rectangle
 
@@ -313,14 +265,16 @@ def buildSVGFromPaths(paths, width=50, height=25):
 
     rtn = ""
 
-    rtn += r'<svg version="1.1" xmlns="http://www.w3.org/2000/svg"> '
 
-    rtn += r'<rect width="{}" height="{}" stroke="black" stroke-width="2" fill-opacity="0"/> '.format(width*SVG_UNIT_FACTOR, height*SVG_UNIT_FACTOR)
+    rtn += r"<svg version='1.1' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 {0} {1}' width='{0}px' height='{1}px'> ".format(width*SVG_UNIT_FACTOR, height*SVG_UNIT_FACTOR)
+
+    rtn += r"<rect width='{}' height='{}' stroke='black' stroke-width='2' fill-opacity='0'/> ".format(width*SVG_UNIT_FACTOR, height*SVG_UNIT_FACTOR)
 
     for i, p in enumerate(paths):
-        rtn += r'<path d="{}" id="{}" stroke="black" fill="green" stroke-width="2" fill-opacity="0.5"/> '.format(p, i)
+        for j in p:
+            rtn += r"<path d='{}' id='{}' stroke='black' fill='green' stroke-width='2' fill-opacity='0.5'/> ".format(j, i)
 
-    rtn += r'</svg>'
+    rtn += r"</svg>"
 
     return rtn
 
@@ -339,16 +293,20 @@ def getTransformsFromSVG(svg):
 
     dom = minidom.parseString(svg)
 
+    #print(svg)
+
     ids = []
     transforms = []
 
     p = re.compile(r'[\(\s]-?\d*\.{0,1}\d+')
 
     for e in dom.getElementsByTagName('path'):
-        ids.append(int(e.getAttribute('id')))
-        transformTag = (e.parentNode.getAttribute('transform'))
-        transforms.append([float(i[1:]) for i in p.findall(transformTag)])
-        
+        if not(int(e.getAttribute('id')) in ids):
+            ids.append(int(e.getAttribute('id')))
+            transformTag = (e.parentNode.getAttribute('transform'))
+            transforms.append([float(i[1:]) for i in p.findall(transformTag)])
+            #print([float(i[1:]) for i in p.findall(transformTag)])
+            
     transformsScaled = [ [t[0]/SVG_UNIT_FACTOR, t[1]/SVG_UNIT_FACTOR, t[2]] for t in transforms]
 
     return zip(ids, transformsScaled)

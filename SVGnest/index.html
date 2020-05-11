@@ -87,7 +87,21 @@
 				try {
 					if (action == 'importSVG') {
 						try{
-							var svg = window.SvgNest.parsesvg(data);
+
+							var dataArray = data.split(";");
+
+							//adsk.fusionSendData('test2', data.svg);
+							
+							var newConfig = {
+								spacing: dataArray[1],
+								rotations: dataArray[2],
+								useHoles: dataArray[3],
+								exploreConcave: dataArray[4]
+							};
+
+							window.SvgNest.config(newConfig);
+
+							var svg = window.SvgNest.parsesvg(dataArray[0]);
 							display.innerHTML = '';
 							display.appendChild(svg);
 						}
@@ -101,6 +115,8 @@
 
 						window.SvgNest.setbin(node);
 						node.setAttribute('class',(node.getAttribute('class') ? node.getAttribute('class')+' ' : '') + 'active');
+
+						
 
 						startnest();
 					}
@@ -528,7 +544,7 @@
 			<em class="subscript">Open Source nesting</em>
 			
 			<ul class="nav">
-				<li class="button start" id="demo">Demo</li>
+				<li class="button start" style="display:none" id="demo">Demo</li>
 				<li class="button upload spinner" id="upload"> Converting bodies... </li>
 				<li class="button" id="faqbutton" style="display:none">FAQ</li>
 			</ul>

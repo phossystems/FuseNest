@@ -109,19 +109,12 @@
 			}
 			
 			if('useHoles' in c){
-				config.useHoles = !!c.useHoles;
+				config.useHoles = c.useHoles == "True";
 			}
 			
 			if('exploreConcave' in c){
-				config.exploreConcave = !!c.exploreConcave;
+				config.exploreConcave = c.exploreConcave == "True";
 			}
-			
-			SvgParser.config({ tolerance: config.curveTolerance});
-			
-			best = null;
-			nfpCache = {};
-			binPolygon = null;
-			GA = null;
 						
 			return config;
 		}
