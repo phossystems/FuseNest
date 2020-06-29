@@ -11,7 +11,7 @@ import time, threading
 _handlers = []
 
 COMMAND_ID = "fuseNest"
-COMMAND_NAME = "FuseNest"
+COMMAND_NAME = "FuseNest 2D Nesting"
 COMMAND_TOOLTIP = "2D nest/pack parts on a sheet"
  
 TOOLBAR_PANELS = ["SolidModifyPanel"]
@@ -23,6 +23,8 @@ pers = {
     "VISheetWidth": 50,
     "VISheetHeight": 30,
     "VISpacing": 0,
+    "VISheetOffsetX": 0,
+    "VISheetOffsetY": 5,
     "ISRotations": 4
 }
 
@@ -58,7 +60,7 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             inputs = cmd.commandInputs
             
             siBodies = inputs.addSelectionInput("SIBodies", "Bodies", "Select Bodies")
-            siBodies.addSelectionFilter("Occurrences")
+            siBodies.addSelectionFilter("SolidBodies")
             siBodies.setSelectionLimits(0, 0)
             siBodies.tooltip = "Select parts to be placed"
 
@@ -67,6 +69,12 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
 
             viSheetHeight = inputs.addValueInput("VISheetHeight", "Sheet Height", "mm", adsk.core.ValueInput.createByReal(pers["VISheetHeight"]))
             viSheetHeight.tooltip = "Height of the sheet the parts will be placed on"
+
+            viSheetOffsetX = inputs.addValueInput("VISheetOffsetX", "Sheet Offset X", "mm", adsk.core.ValueInput.createByReal(pers["VISheetOffsetX"]))
+            viSheetOffsetX.tooltip = "Offset between multiple sheets in x"
+
+            viSheetOffsetY = inputs.addValueInput("VISheetOffsetY", "Sheet Offset Y", "mm", adsk.core.ValueInput.createByReal(pers["VISheetOffsetY"]))
+            viSheetOffsetY.tooltip = "Offset between multiple sheets in y"
 
             viSpacing = inputs.addValueInput("VISpacing", "Spacing", "mm", adsk.core.ValueInput.createByReal(pers["VISpacing"]))
             viSpacing.tooltip = "Spacing between parts"
@@ -80,6 +88,13 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             bvNest.isFullWidth = True
             bvNest.tooltip = "Start nesting process"
 
+            root = adsk.core.Application.get().activeProduct.rootComponent
+            for i in root.bRepBodies:
+                siBodies.addSelection(i)
+
+            for o in root.occurrences:
+                for i in o.bRepBodies:
+                    siBodies.addSelection(i)
 
            
         except:
@@ -100,11 +115,30 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
                 for i in range(args.command.commandInputs.itemById("SIBodies").selectionCount):
                     selections.append(args.command.commandInputs.itemById("SIBodies").selection(i).entity)
 
+                first_move = None
+                last_move = None
+
                 root = adsk.core.Application.get().activeProduct.rootComponent
-                sketch = root.sketches.add(root.xYConstructionPlane)
+                des = adsk.core.Application.get().activeDocument.design
+
+                offset_x = 0
+                offset_y = 0
+                
+                if(args.command.commandInputs.itemById("VISheetOffsetX").value > 0):
+                    offset_x = args.command.commandInputs.itemById("VISheetWidth").value + args.command.commandInputs.itemById("VISheetOffsetX").value
+                elif(args.command.commandInputs.itemById("VISheetOffsetX").value < 0):
+                    offset_x = -args.command.commandInputs.itemById("VISheetWidth").value + args.command.commandInputs.itemById("VISheetOffsetX").value
+
+                if(args.command.commandInputs.itemById("VISheetOffsetY").value > 0):
+                    offset_y = args.command.commandInputs.itemById("VISheetHeight").value + args.command.commandInputs.itemById("VISheetOffsetY").value
+                elif(args.command.commandInputs.itemById("VISheetOffsetY").value < 0):
+                    offset_y = -args.command.commandInputs.itemById("VISheetHeight").value + args.command.commandInputs.itemById("VISheetOffsetY").value
+
+
+                
                 for i, t in transform_data:
                     mat1 = adsk.core.Matrix3D.create()
-                    mat1.translation = adsk.core.Vector3D.create(t[0], -t[1], 0)
+                    mat1.translation = adsk.core.Vector3D.create(t[0] +  offset_x * t[3], -t[1] - offset_y * t[3], 0)
 
                     mat2 = adsk.core.Matrix3D.create()
                     mat2.setToRotation(
@@ -115,13 +149,27 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
 
                     mat2.transformBy(mat1)
 
-                    trans = selections[i].transform
-                    trans.transformBy(mat2)
-                    selections[i].transform = trans
+                    if(selections[i].parentComponent == root):
+                        oc = adsk.core.ObjectCollection.create()
+                        oc.add(selections[i])
 
-                    #move_input = root.features.moveFeatures.createInput(oc, mat2)
-                    #root.features.moveFeatures.add(move_input)
-                adsk.core.Application.get().activeDocument.design.snapshots.add()
+                        move_input = root.features.moveFeatures.createInput(oc, mat2)
+                        
+                        if(first_move is None):
+                            first_move = root.features.moveFeatures.add(move_input)
+                            last_move = first_move
+                        else:
+                            last_move = root.features.moveFeatures.add(move_input)
+                    else:
+                        trans = selections[i].assemblyContext.transform
+                        trans.transformBy(mat2)
+                        selections[i].assemblyContext.transform = trans
+                if(des.designType and des.snapshots.hasPendingSnapshot):
+                    des.snapshots.add()
+                    if(first_move):
+                        des.timeline.timelineGroups.add(first_move.timelineObject.index, last_move.timelineObject.index+1)
+                elif(first_move and not( first_move == last_move) and des.designType):
+                    des.timeline.timelineGroups.add(first_move.timelineObject.index, last_move.timelineObject.index)
         except:
             print(traceback.format_exc())
 
@@ -141,6 +189,8 @@ class CommandInputChangedHandler(adsk.core.InputChangedEventHandler):
                 pers["VISheetHeight"] = args.inputs.itemById("VISheetHeight").value
                 pers["VISpacing"] = args.inputs.itemById("VISpacing").value
                 pers["ISRotations"] = args.inputs.itemById("ISRotations").value
+                pers["VISheetOffsetX"] = args.inputs.itemById("VISheetOffsetX").value
+                pers["VISheetOffsetY"] = args.inputs.itemById("VISheetOffsetY").value
 
                 # If there is already a palette, delete it
                 # This is mainly for debugging purposes
@@ -163,8 +213,9 @@ class CommandInputChangedHandler(adsk.core.InputChangedEventHandler):
 
                 for s in selections:
                     sketch = root.sketches.add(root.xYConstructionPlane)
-                    sketch.project(s.bRepBodies[0])
+                    sketch.project(s)
                     paths.append(sketchToSVGPaths(sketch))
+                    sketch.deleteMe()
 
                 svg = buildSVGFromPaths(paths, args.inputs.itemById("VISheetWidth").value, args.inputs.itemById("VISheetHeight").value)
 
@@ -212,8 +263,9 @@ class PaletteCloseEventHandler(adsk.core.UserInterfaceGeneralEventHandler):
         try:
             ui = adsk.core.Application.get().userInterface
             palette = ui.palettes.itemById('paletteSVGNest')
-            if palette:
-                palette.deleteMe()
+            
+            #if palette:
+            #    palette.deleteMe()
         except:
             print(traceback.format_exc())
 
@@ -291,6 +343,9 @@ def getTransformsFromSVG(svg):
 
     global SVG_UNIT_FACTOR
 
+    # Wraps svg data into single root node
+    svg = "<g>{}</g>".format(svg)
+
     dom = minidom.parseString(svg)
 
     #print(svg)
@@ -300,14 +355,20 @@ def getTransformsFromSVG(svg):
 
     p = re.compile(r'[\(\s]-?\d*\.{0,1}\d+')
 
-    for e in dom.getElementsByTagName('path'):
-        if not(int(e.getAttribute('id')) in ids):
-            ids.append(int(e.getAttribute('id')))
-            transformTag = (e.parentNode.getAttribute('transform'))
-            transforms.append([float(i[1:]) for i in p.findall(transformTag)])
-            #print([float(i[1:]) for i in p.findall(transformTag)])
+    for sheetNumber, s in enumerate(dom.firstChild.childNodes):
+        for e in s.getElementsByTagName('path'):
+            if not(int(e.getAttribute('id')) in ids):
+                ids.append(int(e.getAttribute('id')))
+                
+                # Gets the transform atributes as string
+                transformTag = (e.parentNode.getAttribute('transform'))
+
+                # Converts string to list of floats via regex
+                # Adds sheet number to the end
+                transforms.append([float(i[1:]) for i in p.findall(transformTag)] + [sheetNumber] )
             
-    transformsScaled = [ [t[0]/SVG_UNIT_FACTOR, t[1]/SVG_UNIT_FACTOR, t[2]] for t in transforms]
+    # X, Y, rotation, sheet number
+    transformsScaled = [ [t[0]/SVG_UNIT_FACTOR, t[1]/SVG_UNIT_FACTOR, t[2], t[3]] for t in transforms]
 
     return zip(ids, transformsScaled)
     
@@ -322,22 +383,36 @@ def sketchToSVGPaths(sketch):
         [str]: Array of SVG paths
     """
 
-    rtn = []
+    rtn = ""
 
-    for p in sketch.profiles:
+    sortedProfiles = sorted(sketch.profiles, key=lambda x: len(x.profileLoops), reverse=True)
+
+    """for p in sketch.profiles:
         for pl in p.profileLoops:
+
             if(pl.isOuter):
                 rtn.append(loopToSVGPath(pl))
                 break
+    """
 
-    return rtn
+
+    for pl in sortedProfiles[0].profileLoops:
+        # Outer should be clockwise
+        # Inner should be counterclockwise
+        if(pl.isOuter != isLoopClockwise(pl)):
+            rtn += loopToSVGPath(pl, True)
+        else:
+            rtn += loopToSVGPath(pl, False)
+
+    return [rtn]
 
 
-def loopToSVGPath(loop):
+def loopToSVGPath(loop, reverse = False):
     """Converts a ProfileLoop into a SVG Path date
 
     Args:
         loop: (ProfileLoop) Loop to convert
+        reverse: (Bool) Invert direction
 
     Returns:
         str: SVG Path data
@@ -347,9 +422,18 @@ def loopToSVGPath(loop):
 
     rtn = ""
 
-    flip = getWhatCurvesToFlip(loop.profileCurves)
+    profileCurves = [i for i in loop.profileCurves]
 
-    for c, f in zip(loop.profileCurves, flip):
+    if(reverse):
+        profileCurves.reverse()
+
+    flip = getWhatCurvesToFlip(profileCurves)
+
+    if(reverse and len(flip) == 1):
+        flip = [not(i) for i in flip]
+
+
+    for c, f in zip(profileCurves, flip):
         rtn += curveToPathSegment(
             c,
             1/SVG_UNIT_FACTOR,
@@ -438,27 +522,53 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
         ep = curve.geometry.center.copy()
         ep.translateBy(adsk.core.Vector3D.create(0, curve.geometry.radius, 0))
 
-        if(moveTo):
-            rtn += "M{0:.6f} {1:.6f} ".format(
+        if(not invert):
+
+            if(moveTo):
+                rtn += "M{0:.6f} {1:.6f} ".format(
+                    sp.x / scale,
+                    -sp.y / scale
+                )
+
+            rtn += "A {0:.6f} {0:.6f} 0 {1:.0f} {2:.0f} {3:.6f} {4:.6f}".format(
+                curve.geometry.radius / scale,
+                1,
+                1,
+                ep.x / scale,
+                -ep.y / scale
+            )
+
+            rtn += "A {0:.6f} {0:.6f} 0 {1:.0f} {2:.0f} {3:.6f} {4:.6f}".format(
+                curve.geometry.radius / scale,
+                0,
+                1,
                 sp.x / scale,
                 -sp.y / scale
             )
 
-        rtn += "A {0:.6f} {0:.6f} 0 {1:.0f} {2:.0f} {3:.6f} {4:.6f}".format(
-            curve.geometry.radius / scale,
-            1,
-            1,
-            ep.x / scale,
-            -ep.y / scale
-        )
+        else:
+            if(moveTo):
+                rtn += "M{0:.6f} {1:.6f} ".format(
+                    sp.x / scale,
+                    -sp.y / scale
+                )
 
-        rtn += "A {0:.6f} {0:.6f} 0 {1:.0f} {2:.0f} {3:.6f} {4:.6f}".format(
-            curve.geometry.radius / scale,
-            0,
-            1,
-            sp.x / scale,
-            -sp.y / scale
-        )
+            rtn += "A {0:.6f} {0:.6f} 0 {1:.0f} {2:.0f} {3:.6f} {4:.6f}".format(
+                curve.geometry.radius / scale,
+                0,
+                0,
+                ep.x / scale,
+                -ep.y / scale
+            )
+
+            rtn += "A {0:.6f} {0:.6f} 0 {1:.0f} {2:.0f} {3:.6f} {4:.6f}".format(
+                curve.geometry.radius / scale,
+                1,
+                0,
+                sp.x / scale,
+                -sp.y / scale
+            )
+
     
     elif(curve.geometry.objectType == "adsk::core::Ellipse3D"):
         sp = curve.geometry.center.copy()
@@ -473,37 +583,66 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
         sa.scaleBy(curve.geometry.minorRadius)
         ep.translateBy(sa)
         
-        angle = math.degrees(math.atan2(la.y, la.x))
+        angle = -math.degrees(math.atan2(la.y, la.x))
 
-        if(moveTo):
-            rtn += "M{0:.6f} {1:.6f} ".format(
+        if(not invert):
+            if(moveTo):
+                rtn += "M{0:.6f} {1:.6f} ".format(
+                    sp.x / scale,
+                    -sp.y / scale
+                )
+
+            # rx ry rot large_af sweep_af x y
+            rtn += "A {0:.6f} {1:.6f} {2:.6f} {3:.0f} {4:.0f} {5:.6f} {6:.6f}".format(
+                curve.geometry.majorRadius / scale,
+                curve.geometry.minorRadius / scale,
+                angle,
+                1,
+                1,
+                ep.x / scale,
+                -ep.y / scale
+            )
+
+            rtn += "A {0:.6f} {1:.6f} {2:.6f} {3:.0f} {4:.0f} {5:.6f} {6:.6f}".format(
+                curve.geometry.majorRadius / scale,
+                curve.geometry.minorRadius / scale,
+                angle,
+                0,
+                1,
+                sp.x / scale,
+                -sp.y / scale
+            )
+        else:
+            if(moveTo):
+                rtn += "M{0:.6f} {1:.6f} ".format(
+                    sp.x / scale,
+                    -sp.y / scale
+                )
+
+            # rx ry rot large_af sweep_af x y
+            rtn += "A {0:.6f} {1:.6f} {2:.6f} {3:.0f} {4:.0f} {5:.6f} {6:.6f}".format(
+                curve.geometry.majorRadius / scale,
+                curve.geometry.minorRadius / scale,
+                angle,
+                0,
+                0,
+                ep.x / scale,
+                -ep.y / scale
+            )
+
+            rtn += "A {0:.6f} {1:.6f} {2:.6f} {3:.0f} {4:.0f} {5:.6f} {6:.6f}".format(
+                curve.geometry.majorRadius / scale,
+                curve.geometry.minorRadius / scale,
+                angle,
+                1,
+                0,
                 sp.x / scale,
                 -sp.y / scale
             )
 
-        # rx ry rot large_af sweep_af x y
-        rtn += "A {0:.6f} {1:.6f} {2:.6f} {3:.0f} {4:.0f} {5:.6f} {6:.6f}".format(
-            curve.geometry.majorRadius / scale,
-            curve.geometry.minorRadius / scale,
-            angle,
-            1,
-            1,
-            ep.x / scale,
-            -ep.y / scale
-        )
-
-        rtn += "A {0:.6f} {1:.6f} {2:.6f} {3:.0f} {4:.0f} {5:.6f} {6:.6f}".format(
-            curve.geometry.majorRadius / scale,
-            curve.geometry.minorRadius / scale,
-            angle,
-            0,
-            1,
-            sp.x / scale,
-            -sp.y / scale
-        )
 
     elif(curve.geometry.objectType == "adsk::core::EllipticalArc3D"):
-        angle = math.degrees(math.atan2(curve.geometry.majorAxis.y, curve.geometry.majorAxis.x))
+        angle = -math.degrees(math.atan2(curve.geometry.majorAxis.y, curve.geometry.majorAxis.x))
 
         _, sp, ep = curve.geometry.evaluator.getEndPoints()
 
@@ -596,6 +735,34 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
         print("Warning: Unsupported curve type, could not be converted: {}".format(curve.geometryType))
 
     return rtn
+
+
+def isLoopClockwise(loop):
+    """Determins if a ProfileLoop is clockwise
+
+    Args:
+        loop: (ProfileLoop) The loop to check
+
+    Returns:
+        bool: True if clockwise.
+    """
+
+    # If if it has only one segment it is clockwise by definition
+    if(len(loop.profileCurves) == 1):
+        return False;
+
+    # https://stackoverflow.com/questions/1165647/how-to-determine-if-a-list-of-polygon-points-are-in-clockwise-order
+    res = 0
+
+    sp = [getStartPoint(i.geometry) for i in loop.profileCurves]
+    ep = [getEndPoint(i.geometry) for i in loop.profileCurves]
+    
+
+    # range(len()) one of the deally sins of python
+    for s, e in zip(sp, ep):
+        res += (e.x - s.x) * (e.y + s.y)
+
+    return res > 0
 
 
 def getWhatCurvesToFlip(curves):
@@ -751,6 +918,9 @@ def run(context):
         if not cmdDef:
             cmdDef = commandDefinitions.addButtonDefinition(COMMAND_ID, COMMAND_NAME,
                                                             COMMAND_TOOLTIP, '')
+
+            cmdDef.tooltip = "Automatically lays out parts on a sheet optimizing for material usage"
+            cmdDef.toolClipFilename = 'resources/description.png'
         #Adds the commandDefinition to the toolbar
         for panel in TOOLBAR_PANELS:
             ui.allToolbarPanels.itemById(panel).controls.addCommand(cmdDef)
