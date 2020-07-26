@@ -1,0 +1,14 @@
+This Add-In itself does not capture or store any user data.
+
+The Autodesk App Store captures, and gives us access to, a download record containing the following personal information:
+
+ Language
+ Country
+ First Name
+ Last Name
+ Email
+ Company Name
+ Date &	Time of download
+
+We may use the Email address to inform users about software updates. If you do not wish that your email address be used for this purpose you can contact us, or click on the unsubscribe link in the emails you have received, and we will delete your email address from our list.    
+We do not store or use any other personal information and do not give information to any third party.

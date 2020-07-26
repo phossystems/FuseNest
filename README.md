@@ -2,32 +2,54 @@
 
 
 # FuseNest
-[WIP] SVGNest integration Add-In for Autodesk Fusion360
+2D Nesting / Packing Add-In for Autodesk Fusion360 based on SVGNest
 
 <img width="680" alt="Screenshot 2020-05-03 at 20 55 45" src="https://user-images.githubusercontent.com/30301307/80922930-9f875c00-8d80-11ea-84c1-dd7610ffb042.png">
 
-# Note
-This is an early version. Its pretty much the bare minimum. **And things are going to change, including the license. This will always be free for hobbyists but I may decide to sell the commercial version.**
-Be aware.
+# Features
+* Nesting of bodies & components on rectangualar sheets
+* Spacing between parts
+* Multiple sheets
 
 # How to use
-* one body per component, holes are currently not supported. 
-* Launch from Modify > 2D nest
-* Select components
-* enter sheet size
-* press start nest
-* wait until it looks ok-ish
-* press "apply nest"
-* press ok
-* hope it worked
+Launch the command and select the bodies you whish to nest. All bodies will be selected by default. We suggest having one bodie per component as this works the best, but having all bodies in the root component or a mix of both also works (but creates a lot of timeline objects). Bodies shouldn't overlap and should be placed further apart than the desired spacing.    
+Set the parameters as required:
 
-### Whant some options?
+**Sheet Width/Height:**    
+Width & Height of the rectangular sheet parts will be placed on.
 
-There are some cool options, like **spacing!**
-open SVGnest/svgnest.js and look at line 28.
-Just save, no need to restart.
+**Sheet offset X/Y:**    
+Distance between sheets    
+e.g. X=-30mm Y=0mm will place the next sheet 30mm left of the preevious one.
+
+**Spacing:**    
+Approximate spacing between parts. Set this a bit higher than your miniumum spacing as it can vary by small amounts.
+
+**Rotations:**    
+The number of rotations the Algorithm will try. Setting this too high will drastically increase the time required to find a good solution, setting it too low will make it impossible to find some good solutions. Here are some suggested values:    
+    
+* Perfectly circular, square or Hexagonal parts: 2
+* Good compromise between speed and quality: 4
+* Odd/Organic shapes with high aspect ratio: 8+
+
+<img width="1048" alt="Screenshot 2020-07-26 at 11 02 34" src="https://user-images.githubusercontent.com/30301307/88475385-86311e80-cf2f-11ea-81eb-339ca396b313.png">
+
+Press "Start Nesting" to start the nesting process.    
+This will open a new window and will start nesting after the selected bodies are loaded. This may take several minutes if the bodies are complex.    
+The first round of nesting will take the longest. The Progress bar will indicate the aproximate progress for the current itteration. After the first iteration the algorithm will try to find better solutions in further itterations until it is stopped.    
+    
+Press "Apply Nest" to accept the current result or Press "Close" to go back to the previous step, deleting any prograss done. Pressing "Stop Nest" will pause the process temporarily. It can be resumed by pressing "Start Nest"
+
+<img width="1433" alt="Screenshot 2020-07-26 at 11 16 03" src="https://user-images.githubusercontent.com/30301307/88475564-6864b900-cf31-11ea-98ad-8cbc362105f1.png">
+
+After pressing "Apply Nest" you will be back to the command. Press "OK" to confirm. Changing selected bodies or settings will void the previously calcualted nesting data, so be careful.
+
+# License
+This free version is licensed under a **non-commercial** license intended for personal, educational & trial use. **A commercial license can be purchased from the Fusion360 App Store soon.** Plase contact us if you need a different license, for example for reusing parts of this code commercially.
 
 # Installation
+**Installation through the Fusion360 App Store will be available soon**
+
 * Download the Project as ZIP and extract it somewhere you can find again, but won't bother you. (or use git to clone it there)
 * Open Fusion360 and press ADD-INS > Scripts and Add-ins
 * Select the tab Add-Ins and click the green plus symbol next to "My Add-Ins"
@@ -37,6 +59,5 @@ Just save, no need to restart.
 
 # Changelog
 
-## No
-- No
+## 1.0 Initial Version
 

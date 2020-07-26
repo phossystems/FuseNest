@@ -1,0 +1,14 @@
+This app automatically places parts on a sheet in a material-efficient manner given sheet size & spacing using an open-source nesting algorithm.
+
+Features:
+ - Automatically lays out parts
+ - Starts a new sheet once the first one is full.
+ - Adjustable spacing between parts
+ - Continues to look for better solutions after the first one is found.
+
+This is the professional version, a free version is also available for non-commercial, educational, and trial use. Users of the professional version are prioritized regarding support and bug reports.
+
+This is the free version for non-commercial, educational, and trial use only. A professional version for commercial use, including priority support is also available.
+
+More details, written use instructions and the source code can be found here:
+https://github.com/NicoSchlueter/FuseNest 
