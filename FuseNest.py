@@ -371,8 +371,6 @@ def getTransformsFromSVG(svg):
 
     dom = minidom.parseString(svg)
 
-    #print(svg)
-
     ids = []
     transforms = []
 
@@ -463,7 +461,6 @@ def loopToSVGPath(loop, reverse = False):
             f,
             not rtn
         )
-    print(rtn)
     return rtn
 
 
@@ -483,7 +480,6 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
 
     rtn = ""
 
-    print(curve.geometry.objectType)
 
     if(curve.geometry.objectType == "adsk::core::Line3D"):
         if(not invert):
@@ -493,7 +489,7 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
                     -curve.geometry.startPoint.y / scale
                 )
 
-            rtn += "L{0:.6f} {1:.2f} ".format(
+            rtn += "L{0:.6f} {1:.6f} ".format(
                 curve.geometry.endPoint.x / scale,
                 -curve.geometry.endPoint.y / scale)
 
@@ -504,7 +500,7 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
                     -curve.geometry.endPoint.y / scale
                 )
 
-            rtn += "L{0:.6f} {1:.2f} ".format(
+            rtn += "L{0:.6f} {1:.6f} ".format(
                 curve.geometry.startPoint.x / scale,
                 -curve.geometry.startPoint.y / scale)
     
@@ -623,7 +619,7 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
                 curve.geometry.minorRadius / scale,
                 angle,
                 1,
-                1,
+                0,
                 ep.x / scale,
                 -ep.y / scale
             )
@@ -633,7 +629,7 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
                 curve.geometry.minorRadius / scale,
                 angle,
                 0,
-                1,
+                0,
                 sp.x / scale,
                 -sp.y / scale
             )
@@ -650,7 +646,7 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
                 curve.geometry.minorRadius / scale,
                 angle,
                 0,
-                0,
+                1,
                 ep.x / scale,
                 -ep.y / scale
             )
@@ -660,7 +656,7 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
                 curve.geometry.minorRadius / scale,
                 angle,
                 1,
-                0,
+                1,
                 sp.x / scale,
                 -sp.y / scale
             )
@@ -740,7 +736,7 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
                     -p[0].y / scale
                 )
             for i in p[1:]:
-                rtn += "L{0:.6f} {1:.2f} ".format(
+                rtn += "L{0:.6f} {1:.6f} ".format(
                     i.x / scale,
                     -i.y / scale
                 )
@@ -751,15 +747,13 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
                     -p[-1].y / scale
                 )
             for i in reversed(p[:-1]):
-                rtn += "L{0:.6f} {1:.2f} ".format(
+                rtn += "L{0:.6f} {1:.6f} ".format(
                     i.x / scale,
                     -i.y / scale
                 )
 
     else:
         print("Warning: Unsupported curve type, could not be converted: {}".format(curve.geometryType))
-
-    print(rtn)
     return rtn
 
 
