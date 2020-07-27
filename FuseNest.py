@@ -463,7 +463,7 @@ def loopToSVGPath(loop, reverse = False):
             f,
             not rtn
         )
-
+    print(rtn)
     return rtn
 
 
@@ -482,6 +482,8 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
     """
 
     rtn = ""
+
+    print(curve.geometry.objectType)
 
     if(curve.geometry.objectType == "adsk::core::Line3D"):
         if(not invert):
@@ -689,7 +691,7 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
         else:
             if(moveTo):
                 rtn += "M{0:.6f} {1:.6f} ".format(
-                    ep.endPoint.x / scale,
+                    ep.x / scale,
                     -ep.y / scale
                 )
 
@@ -757,6 +759,7 @@ def curveToPathSegment(curve, scale=1, invert=False, moveTo=False):
     else:
         print("Warning: Unsupported curve type, could not be converted: {}".format(curve.geometryType))
 
+    print(rtn)
     return rtn
 
 
@@ -940,7 +943,7 @@ def run(context):
         cmdDef = commandDefinitions.itemById(COMMAND_ID)
         if not cmdDef:
             cmdDef = commandDefinitions.addButtonDefinition(COMMAND_ID, COMMAND_NAME,
-                                                            COMMAND_TOOLTIP, '')
+                                                            COMMAND_TOOLTIP, 'resources')
 
             cmdDef.tooltip = "Automatically lays out parts on a sheet optimizing for material usage"
             cmdDef.toolClipFilename = 'resources/description.png'
