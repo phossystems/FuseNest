@@ -1,4 +1,4 @@
-This app automatically places parts on a sheet in a material-efficient manner given sheet size & spacing using an open-source nesting algorithm.
+This app automatically places parts on a sheet in a material-efficient manner given sheet size & spacing using the SVGNest open-source nesting algorithm.
 
 Features:
  - Automatically lays out parts
