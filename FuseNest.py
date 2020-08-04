@@ -10,9 +10,6 @@ import time, threading
 # Global set of event handlers to keep them referenced for the duration of the command
 _handlers = []
 
-# Determines if the reminder to purchase the commercial version is shown
-# Gets set to true after the command is executed for the first time until the Add-In is restarted.
-IS_COMMERCIAL_VERSION = False;
 
 COMMAND_ID = "fuseNest"
 COMMAND_NAME = "FuseNest 2D Nesting"
@@ -101,25 +98,6 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
                 for i in o.bRepBodies:
                     siBodies.addSelection(i)
 
-            # Displays reminder
-            try:
-                global IS_COMMERCIAL_VERSION
-
-                rapp = adsk.core.Application.get()
-                rui = rapp.userInterface
-
-                if(not IS_COMMERCIAL_VERSION):
-                    IS_COMMERCIAL_VERSION = True
-
-                    if(rapp.executeTextCommand('Debug.EntitlementString') == "Commercial"):
-                        rui.messageBox(
-                            "Terms-of-use reminder:\n\nThis free version of FuseNest is only for non-commercial, educational & trial use.\nFor commercial use, please purchase the commercial version from the Autodesk App Store.\n\n(You are seeing this since you are using a commercial version of Fusion360, this does not necessarily mean you are using FuseNest commercially)"
-                            )
-            except:
-                print("Failed to display reminder")
-                print(traceback.format_exc())
-
-           
         except:
             print(traceback.format_exc())
 

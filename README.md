@@ -44,9 +44,6 @@ Press "Apply Nest" to accept the current result or Press "Close" to go back to t
 
 After pressing "Apply Nest" you will be back to the command. Press "OK" to confirm. Changing selected bodies or settings will void the previously calculated nesting data, so be careful.
 
-# License
-This free version is licensed under a **non-commercial** license intended for personal, educational & trial use. **A commercial license can be purchased from the Fusion360 App Store soon.** Please contact us if you need a different license, for example for reusing parts of this code commercially.
-
 # Installation
 **Installation through the Fusion360 App Store will be available soon**
 
